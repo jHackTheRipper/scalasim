@@ -11,10 +11,10 @@ object SchellingCL extends App {
   implicit val rng = new Random
   implicit val context = Context.best
 
-  trait Place
-  case object Free extends Place
-  case object White extends Place
-  case object Black extends Place
+  type Place = Int
+  val Free = 0
+  val White = 1
+  val Black = 2
 
   def pmod(i: Int, j: Int) = {
     val m = i % j
