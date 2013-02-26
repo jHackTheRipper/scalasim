@@ -12,6 +12,7 @@
 #include <cuda.h>
 #include <list>
 #include <vector>
+#include <utility>
 #include <iterator>
 #include <boost/iterator/zip_iterator.hpp>
 
@@ -30,23 +31,25 @@
 
 
 /** Definitions concerning the place type */
+typedef std::pair<int, int> Position;
 typedef int Place;
-typedef std::vector<Place> PlaceList;
-typedef std::vector<PlaceList> PlaceMatrix;
+typedef std::vector<Position>  	  PositionList;
+typedef std::vector<PositionList> PositionMatrix;
 
-const Place Free = 0;
+/** Constants from the simulation model */
+const Place Free  = 0;
 const Place White = 1;
 const Place Black = 2;
 
 const int side = 500;
 
 class State {
-	PlaceMatrix matrix_;
+	std::vector<std::vector<Place> > matrix_;
 
 	int side_;
 
 private:
-	inline int pmod(int i, int j) {
+	inline int pmod(int i, int j) const {
 		int m = i %j;
 		if (m < 0) 	return m + j;
 		return m;
@@ -57,10 +60,14 @@ public:
 	Place& operator() (int i, int j) {
 		return matrix_[pmod(i, side_)][pmod(j, side_)];
 	}
+	const Place& operator() (int i, int j) const {
+		return matrix_[pmod(i, side_)][pmod(j, side_)];
+	}
 
 };
 
-/** Adapted from http://stackoverflow.com/a/8511125/470341 */
+/** Equivalent of zip function from Scala
+ *  Adapted from http://stackoverflow.com/a/8511125/470341 */
 template <typename C1, typename C2>
 class zip_container {
     C1* c1;
@@ -83,8 +90,10 @@ public:
 
     typedef typename boost::zip_iterator<tuple> iterator;
 
-    iterator begin() const { return iterator(c1->begin(), c2->begin()); }
-    iterator end()   const { return iterator(c1->end(),   c2->end());   }
+    iterator begin() const { return boost::make_zip_iterator(boost::make_tuple(c1->begin(), c2->begin() )); }
+    iterator end()   const { return boost::make_zip_iterator(boost::make_tuple(c1->end(),   c2->end()   ));   }
+
+    inline std::size_t size() { return end() - begin(); }
 };
 
 template <typename C1, typename C2>
@@ -94,33 +103,51 @@ zip_container<C1, C2> zip(C1& c1, C2& c2) {
 
 
 
-PlaceList moving(const State& inState, float inSimilarWanted) {
+PositionList moving(const State& inState, float inSimilarWanted) {
 	// TODO
 
 //	unsigned int nbBlock = ceil ();
 //	movingKernel<<< nbBlocks, 256 >>> ();
 }
 
-PlaceList freeCells(const State& inState) {
+PositionList freeCells(const State& inState) {
 	// TODO
 }
 
-void copyMoves(const zip_container<PlaceList, PlaceList>::tuple& inTuple) {
+struct CopyMoves {
 
-}
+	const State& currentState;
+	State& 		 nextState;
+
+	explicit CopyMoves (const State& inCurrentState, State& inNextState)
+		:currentState(inCurrentState), nextState(inNextState)
+	{}
+
+	void operator() (const zip_container<PositionList, PositionList>::tuple& inTuple) {
+		nextState(inTuple.get<0>()->first, inTuple.get<0>()->second) = currentState(inTuple.get<1>()->first, inTuple.get<1>()->second);
+		nextState(inTuple.get<1>()->first, inTuple.get<1>()->second) = 0;
+	}
+};
 
 void step(State& inoutState) {
-	PlaceList wantToMove = moving(inoutState, 0.65);
-	PlaceList free 		 = freeCells(inoutState);
+	PositionList wantToMove  = moving(inoutState, 0.65);
+	PositionList free 		 = freeCells(inoutState);
 
 	std::random_shuffle(wantToMove.begin(), wantToMove.end());
 	std::random_shuffle(free.begin(), free.end());
 
-	zip_container<PlaceList, PlaceList> moves(wantToMove, free);
+	zip_container<PositionList, PositionList> moves = zip(wantToMove, free);
+	State nextState(inoutState);
 
-	// now work directly on inoutState
-	//std::for_each(moves.begin(), moves.end(), copyMoves);
+	CopyMoves functor(inoutState, nextState);
 
+//	zip_container<PositionList, PositionList>::iterator first = moves.begin();
+//	zip_container<PositionList, PositionList>::iterator end = moves.end();
+//	for (; first != end; ++first) {
+//		zip_container<std::vector<std::pair<int,int> >, std::vector<std::pair<int,int> > >::tuple = boost::make_tuple(first, end);
+//	}
+
+	for_each(moves.begin(), moves.end(), functor);
 }
 
 void simulation(State& inoutState, int nbSteps) {
