@@ -1,0 +1,3 @@
+[submodule "gpu/src/schelling/cuda_utils"]
+	path = gpu/src/schelling/cuda_utils
+	url = https://github.com/jHackTheRipper/cuda_utils.git

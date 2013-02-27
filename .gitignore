@@ -17,6 +17,6 @@ project/target
 out
 
 # CUDA specific
-a.out
+a.out*
 .cproject
 .project
