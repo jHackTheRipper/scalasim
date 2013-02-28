@@ -51,7 +51,7 @@ object SchellingCL extends App {
 
   // Compute the list of coordinates of the agents that want to move
   def moving(state: State, similarWanted: Double) =
-    state.cells.filter{case (_, c) => c != Free}.toArray.flatMap {
+    state.cells.filter{case (_, c) => c != Free}.toArray.cl.flatMap {
       case((i, j), _) =>
         if(similarNeighbors(state.toArrayState, i, j) < similarWanted) List((i, j)) else List.empty
     }
