@@ -19,6 +19,20 @@ namespace std {
       }
       return result;
     }
+
+    template <class InputIterator, class OutputIterator, class OtherIterator, class UnaryPredicate>
+          OutputIterator copy_if (InputIterator first, InputIterator last,
+                                  OutputIterator result, UnaryPredicate pred)
+        {
+          while (first!=last) {
+            if (pred(*first)) {
+              *result = *first;
+              ++result;
+            }
+            ++first;
+          }
+          return result;
+        }
 }
 
 #endif // ALGORITHM_H
