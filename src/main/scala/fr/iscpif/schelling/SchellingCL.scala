@@ -26,7 +26,12 @@ object SchellingCL extends App {
     def iterator = matrix.iterator.flatten
     def apply(i: Int)(j: Int) = matrix(pmod(i, side))(pmod(j, side))
     def cells = matrix.zipWithIndex.flatMap{ case(l, i) => l.zipWithIndex.map{ case(c, j) => ((i, j), c) } }
+    def toArrayState = new ArrayState(matrix.flatten.toArray, side)
     override def toString = matrix.toString
+  }
+
+  class ArrayState(array: Array[Place], side: Int) {
+    def apply(i: Int)(j: Int) = array(pmod(i, side) * side + pmod(j, side))
   }
 
   // Randomly draw a cell type given the proportions
@@ -39,7 +44,7 @@ object SchellingCL extends App {
     new State(Seq.fill(side, side)(randomCell(freeP, whiteP)))
 
   // Compute the proportion of similar neighbors in a neighborhood of neighborhoodSize
-  def similarNeighbors(state: State, i: Int, j: Int) = {
+  def similarNeighbors(state: ArrayState, i: Int, j: Int) = {
     val n = neighbors(state, i, j).filter(_ != Free).toList
     n.count{ _ == state(i)(j) } / n.size.toDouble
   }
@@ -48,10 +53,10 @@ object SchellingCL extends App {
   def moving(state: State, similarWanted: Double) =
     state.cells.filter{case (_, c) => c != Free}.toArray.flatMap {
       case((i, j), _) =>
-        if(similarNeighbors(state, i, j) < similarWanted) List((i, j)) else List.empty
+        if(similarNeighbors(state.toArrayState, i, j) < similarWanted) List((i, j)) else List.empty
     }
 
-  def neighbors(state: State, i: Int, j: Int) =
+  def neighbors(state: ArrayState, i: Int, j: Int) =
     for {
       oi <- -neighborhoodSize to neighborhoodSize
       oj <- -neighborhoodSize to neighborhoodSize
@@ -77,8 +82,8 @@ object SchellingCL extends App {
 
   def simulation(state: State = initial (Parameters.side, Parameters.freeP, Parameters.whiteP), nbStep: Int = Parameters.steps): State = {
     println(nbStep + " steps left")
-    if( 0 == nbStep )   state
-    else                simulation(step(state), nbStep - 1)
+    if( nbStep == 0 ) state
+    else simulation(step(state), nbStep - 1)
   }
 
   simulation()
