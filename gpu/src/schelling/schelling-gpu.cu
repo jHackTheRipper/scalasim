@@ -35,11 +35,18 @@ namespace Schelling {
     const double whiteP = 0.5;
 }
 
+const float nbThreads = 256.0;
 
 class State {
 public:
 	int side_;
 	PlaceMatrix matrix_;
+
+	// CUDA members
+	int* flatPosTab_device;
+	int* flatPosTab_host;
+	int* movingTab_device;
+	int* movingTab_host;
 
 private:
 	inline int pmod(int i, int j) const {
@@ -71,6 +78,13 @@ public:
         for (; rows != rowsEnd; ++rows) {
             std::for_each(rows->begin(), rows->end(), randomCell);
         }
+
+        // CUDA init
+        flatPosTab_host = new int[side_ * side_];
+        cutilSafeCall( cudaMalloc(&flatPosTab_device, side_ * side_ * sizeof(int)) );
+
+        movingTab_host = new int[side_ * side_];
+        cutilSafeCall( cudaMalloc(&movingTab_device, side_ * side_ * sizeof(int)) );
     }
 
 	Place& operator() (int i, int j) {
@@ -82,14 +96,43 @@ public:
 
 };
 
-
-PositionList moving(const State& inState, float inSimilarWanted) {
-	// TODO
-}
-
+// --- helpers ---
 bool isFree(const Place& inPlace) {
     return Schelling::Free == inPlace;
 }
+
+int position2Int(const State& inState, const Position& inPosition) {
+	return inState(inPosition.first, inPosition.second);
+}
+
+PositionList moving(const State& inState, float inSimilarWanted) {
+
+	PlaceMatrix::const_iterator matrixBegin = inState.matrix_.begin();
+	PlaceMatrix::const_iterator matrixEnd = inState.matrix_.end();
+
+	for (; matrixBegin != matrixEnd; ++matrixBegin) {
+		// determine current row in the matrix
+		int offset = (matrixEnd - matrixBegin) * inState.side_;
+		// then copy the Int value of its Position of the current row
+		std::copy(matrixBegin->begin(), matrixBegin->end(), inState.flatPosTab_host + offset);
+	}
+
+	cutilSafeCall( cudaMemcpy(inState.flatPosTab_device, inState.flatPosTab_host, inState.side_ * inState.side_ * sizeof(int), cudaMemcpyHostToDevice ) );
+	long int nbBlocks = static_cast<int>( ceil (inState.side_ * inState.side_ / nbThreads ) );
+//	movingKernel <<< nbBlocks, nbThreads >>>(inState.flatPosTab_device, inState.movingTab_device, inState.side_ * inState.side_);
+	cutilSafeCall( cudaMemcpy(inState.movingTab_host, inState.movingTab_device, inState.side_ * inState.side_ * sizeof(int), cudaMemcpyDeviceToHost ) );
+
+	PositionList moving;
+
+	for (int i = 0; i < inState.side_; ++i) {
+		for (int j = 0; i < inState.side_; ++j) {
+			if (inState.movingTab_host[i * inState.side_ + j] < inSimilarWanted) 	moving.push_back(std::make_pair<int, int>(i, j));
+		}
+	}
+
+	return moving;
+}
+
 
 PositionList freeCells(const State& inState) {
     PositionList freeCells;
@@ -122,8 +165,7 @@ struct CopyMoves {
 };
 
 State step(const State& inState) {
-//	PositionList wantToMove  = moving(inState, 0.65);
-    PositionList wantToMove;
+	PositionList wantToMove  = moving(inState, 0.65);
 	PositionList free 		 = freeCells(inState);
 
 	std::random_shuffle(wantToMove.begin(), wantToMove.end());
@@ -155,7 +197,6 @@ void simulation(State& inoutState, int nbSteps) {
  */
 int main(void) {
 
-	// TODO
 	State initialState(Schelling::side);
 	initialState.init();
 	simulation( initialState, 500);
