@@ -13,6 +13,7 @@
 
 #include <cuda.h>
 #include "cuda_utils/cuda_util.h"
+#include "moving_kernel.cu"
 
 // ------ Schelling -------
 
@@ -85,6 +86,7 @@ public:
 
         movingTab_host = new int[side_ * side_];
         cutilSafeCall( cudaMalloc(&movingTab_device, side_ * side_ * sizeof(int)) );
+
     }
 
 	Place& operator() (int i, int j) {
@@ -119,7 +121,8 @@ PositionList moving(const State& inState, float inSimilarWanted) {
 
 	cutilSafeCall( cudaMemcpy(inState.flatPosTab_device, inState.flatPosTab_host, inState.side_ * inState.side_ * sizeof(int), cudaMemcpyHostToDevice ) );
 	long int nbBlocks = static_cast<int>( ceil (inState.side_ * inState.side_ / nbThreads ) );
-//	movingKernel <<< nbBlocks, nbThreads >>>(inState.flatPosTab_device, inState.movingTab_device, inState.side_ * inState.side_);
+	movingKernel <<< nbBlocks, nbThreads >>>(inState.flatPosTab_device, inState.movingTab_device, inState.side_ );
+	cutilSafeCall(cudaGetLastError());
 	cutilSafeCall( cudaMemcpy(inState.movingTab_host, inState.movingTab_device, inState.side_ * inState.side_ * sizeof(int), cudaMemcpyDeviceToHost ) );
 
 	PositionList moving;
