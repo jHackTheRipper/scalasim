@@ -4,7 +4,7 @@ assemblySettings
 
 organization := "fr.iscpif"
 
-name := "schelling"
+name := "scalasim"
 
 version := "1.0"
 
