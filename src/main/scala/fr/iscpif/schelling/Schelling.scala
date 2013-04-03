@@ -79,6 +79,6 @@ object Schelling extends App {
     else                simulation(step(state), nbStep - 1)
   }
 
-  simulation()
+  (0 until 10) foreach ( _ => simulation() )
 
 }
